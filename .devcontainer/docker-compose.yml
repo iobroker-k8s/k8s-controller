@@ -5,6 +5,7 @@ services:
     image: mcr.microsoft.com/devcontainers/typescript-node:1-24-bookworm
     volumes:
       - ../..:/workspaces:cached
+      - k3s-kubeconfig:/tmp
     working_dir: /workspaces/k8s-controller
     command: sleep infinity
     network_mode: service:k3s
@@ -40,7 +41,6 @@ services:
     volumes:
       - iobroker-data:/opt/iobroker
     environment:
-      - PACKAGES=build-essential python3 python3-dev python3-pip python3-setuptools git
       - REDIS_DB_HOST=valkey
       - REDIS_DB_PORT=6379
       - REDIS_DB_PASSWORD=iobroker
@@ -66,7 +66,7 @@ services:
       - K3S_KUBECONFIG_MODE=666
     volumes:
       - k3s-server:/var/lib/rancher/k3s
-      - /tmp:/tmp
+      - k3s-kubeconfig:/tmp
     ports:
       - "6443:6443"
       - "80:80"
@@ -76,3 +76,4 @@ volumes:
   valkey-data:
   iobroker-data:
   k3s-server:
+  k3s-kubeconfig:

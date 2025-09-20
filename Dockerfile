@@ -41,9 +41,6 @@ COPY --from=builder /app/build ./build
 RUN chown -R nextjs:nodejs /app
 USER nextjs
 
-# Expose port (if needed for health checks)
-EXPOSE 3000
-
 # Set executable permissions on the main file
 RUN chmod +x /app/build/index.js
 

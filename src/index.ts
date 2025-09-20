@@ -5,7 +5,6 @@ const { hideBin } = require('yargs/helpers');
 
 interface Arguments {
   verbose?: boolean;
-  config?: string;
 }
 
 const argv = yargs(hideBin(process.argv))
@@ -14,11 +13,6 @@ const argv = yargs(hideBin(process.argv))
     type: 'boolean',
     description: 'Run with verbose logging',
     default: false,
-  })
-  .option('config', {
-    alias: 'c',
-    type: 'string',
-    description: 'Configuration file path',
   })
   .help()
   .alias('help', 'h')
@@ -30,10 +24,6 @@ function main(): void {
   if (argv.verbose) {
     console.log('Verbose mode enabled');
     console.log('Arguments:', argv);
-  }
-  
-  if (argv.config) {
-    console.log(`Using config file: ${argv.config}`);
   }
   
   // TODO: Implement controller logic
