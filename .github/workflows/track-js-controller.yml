@@ -1,0 +1,78 @@
+name: Track js-controller main.ts
+
+on:
+  schedule:
+    - cron: "0 5 * * *"  # every day at 05:00 UTC
+  workflow_dispatch:
+
+jobs:
+  track-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Clone upstream repo shallow
+        run: |
+          git clone --no-checkout --filter=blob:none https://github.com/ioBroker/ioBroker.js-controller.git upstream
+          cd upstream
+          git sparse-checkout set packages/controller/src/main.ts
+          git checkout master
+
+      - name: Find latest upstream commit for main.ts
+        id: latest
+        run: |
+          cd upstream
+          sha=$(git log -1 --format=%H -- packages/controller/src/main.ts)
+          echo "sha=$sha" >> $GITHUB_OUTPUT
+
+      - name: Get last synced commit SHA from issue
+        id: last
+        run: |
+          issue_num=$(gh issue list --repo $GITHUB_REPOSITORY --search "is:open label:upstream-sync" --json number -q '.[0].number')
+          if [ -n "$issue_num" ]; then
+            body=$(gh issue view $issue_num --json body -q .body)
+            last=$(echo "$body" | grep -oP '(?<=<!-- last-synced: )[0-9a-f]+(?= -->)' || true)
+          fi
+          echo "issue_num=${issue_num:-}" >> $GITHUB_OUTPUT
+          echo "last=${last:-}" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Generate diff
+        id: diff
+        run: |
+          cd upstream
+          if [ -n "${{ steps.last.outputs.last }}" ]; then
+            git diff ${{ steps.last.outputs.last }} ${{ steps.latest.outputs.sha }} -- packages/controller/src/main.ts > ../diff.txt || true
+          else
+            git show ${{ steps.latest.outputs.sha }}:packages/controller/src/main.ts > ../diff.txt || true
+          fi
+
+      - name: Update issue
+        if: success()
+        run: |
+          diff_content=$(cat diff.txt)
+          if [ -n "$diff_content" ]; then
+            body="Tracking upstream file: https://github.com/ioBroker/ioBroker.js-controller/blob/master/packages/controller/src/main.ts
+
+Last synced commit: <!-- last-synced: ${{ steps.latest.outputs.sha }} -->
+
+\`\`\`diff
+$diff_content
+\`\`\`
+"
+
+            if [ -z "${{ steps.last.outputs.issue_num }}" ]; then
+              gh issue create \
+                --repo $GITHUB_REPOSITORY \
+                --title "js-controller main.ts has changed" \
+                --label upstream-sync \
+                --body "$body"
+            else
+              gh issue edit ${{ steps.last.outputs.issue_num }} \
+                --body "$body"
+            fi
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
