@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/typescript-node:1-24-bookworm
+    volumes:
+      - ../..:/workspaces:cached
+      - k3s-kubeconfig:/tmp
+    working_dir: /workspaces/k8s-controller
+    command: sleep infinity
+    network_mode: service:k3s
+    depends_on:
+      - valkey
+      - iobroker
+      - k3s
+    environment:
+      - VALKEY_URL=redis://valkey:6379
+      - IOBROKER_URL=http://iobroker:8081
+      - KUBECONFIG=/tmp/kubeconfig
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    command: valkey-server --appendonly yes --requirepass iobroker
+    volumes:
+      - valkey-data:/data
+    ports:
+      - "6379:6379"
+    environment:
+      - VALKEY_PASSWORD=iobroker
+
+  iobroker:
+    image: iobroker/iobroker:latest
+    restart: unless-stopped
+    hostname: iobroker
+    ports:
+      - "8081:8081"
+      - "8082:8082"
+      - "8083:8083"
+      - "8084:8084"
+    volumes:
+      - iobroker-data:/opt/iobroker
+    environment:
+      - REDIS_DB_HOST=valkey
+      - REDIS_DB_PORT=6379
+      - REDIS_DB_PASSWORD=iobroker
+    depends_on:
+      - valkey
+
+  k3s:
+    image: rancher/k3s:latest
+    command: server --disable=traefik --disable=servicelb --write-kubeconfig-mode=644
+    tmpfs:
+      - /run
+      - /var/run
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 65535
+        hard: 65535
+    privileged: true
+    restart: unless-stopped
+    environment:
+      - K3S_TOKEN=k8s-controller-token
+      - K3S_KUBECONFIG_OUTPUT=/tmp/kubeconfig
+      - K3S_KUBECONFIG_MODE=666
+    volumes:
+      - k3s-server:/var/lib/rancher/k3s
+      - k3s-kubeconfig:/tmp
+    ports:
+      - "6443:6443"
+      - "80:80"
+      - "443:443"
+
+volumes:
+  valkey-data:
+  iobroker-data:
+  k3s-server:
+  k3s-kubeconfig:
