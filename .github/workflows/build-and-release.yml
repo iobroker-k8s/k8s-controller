@@ -12,7 +12,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: iobroker-k8s/k8s-controller
+  IMAGE_NAME: iobrokerk8s/k8s-controller
 
 jobs:
   test:
