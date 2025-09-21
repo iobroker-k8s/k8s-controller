@@ -2,7 +2,7 @@ name: Track js-controller main.ts
 
 on:
   schedule:
-    - cron: "0 5 * * *"  # every day at 05:00 UTC
+    - cron: "0 5 * * *" # every day at 05:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -56,12 +56,12 @@ jobs:
           if [ -n "$diff_content" ]; then
             body="Tracking upstream file: https://github.com/ioBroker/ioBroker.js-controller/blob/master/packages/controller/src/main.ts
 
-Last synced commit: <!-- last-synced: ${{ steps.latest.outputs.sha }} -->
+          Last synced commit: <!-- last-synced: ${{ steps.latest.outputs.sha }} -->
 
-\`\`\`diff
-$diff_content
-\`\`\`
-"
+          \`\`\`diff
+          $diff_content
+          \`\`\`
+          "
 
             if [ -z "${{ steps.last.outputs.issue_num }}" ]; then
               gh issue create \
