@@ -2,8 +2,7 @@
   "name": "ioBroker k8s Controller",
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
-  "workspaceFolder": "/workspace",
-  "shutdownAction": "stopCompose",
+  "workspaceFolder": "/workspace/k8s-controller",
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
       "nodeGypDependencies": true,
@@ -22,7 +21,10 @@
         "esbenp.prettier-vscode",
         "ms-vscode.vscode-eslint",
         "ms-kubernetes-tools.vscode-kubernetes-tools",
-        "ms-vscode.vscode-json"
+        "ms-vscode.vscode-json",
+        "streetsidesoftware.code-spell-checker",
+        "ms-azuretools.vscode-containers",
+        "eamodio.gitlens"
       ],
       "settings": {
         "editor.formatOnSave": true,
@@ -31,12 +33,6 @@
       }
     }
   },
-  "forwardPorts": [
-    8080,
-    8081,
-    8083,
-    6443
-  ],
   "postCreateCommand": "npm install",
   "remoteUser": "node"
 }
