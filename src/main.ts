@@ -43,9 +43,16 @@ import { getHostObjects } from './lib/objects';
 import restart from './lib/restart';
 import { getCronExpression, getDiskWarningLevel } from './lib/utils';
 import { DatabaseOptions } from '@iobroker/types/build/config';
+import { cmdExec } from './cmdExec';
+
+export type SendTo = typeof sendTo;
 
 type DiagInfoType = 'extended' | 'normal' | 'no-city' | 'none';
 type Dependencies = string[] | Record<string, string>[] | string | Record<string, string>;
+
+interface GetLogFilesResult {
+    list: { fileName: string; size: number }[];
+}
 
 interface StopTimeoutObject {
     timeout: NodeJS.Timeout | null;
@@ -69,6 +76,8 @@ interface SendResponseToOptions {
 type HostInformation = ioBroker.HostCommon & { host: string; runningVersion: string };
 
 const VIS_ADAPTERS = ['vis', 'vis-2'] as const;
+const ioPackage = fs.readJSONSync(path.join(tools.getControllerDir(), 'io-package.json'));
+const version = ioPackage.common.version;
 
 let notificationHandler: NotificationHandler;
 let blocklistManager: BlocklistManager;
@@ -213,7 +222,7 @@ function getConfig(): ioBroker.IoBrokerJson {
             maxQueue: 1000,
         },
         log: {
-            level: 'info',
+            level: 'debug',
             maxDays: 7,
             noStdout: false,
             transport: {},
@@ -1671,61 +1680,11 @@ async function processMessage(msg: ioBroker.SendableMessage): Promise<null | voi
       break;
       */
 
-        // TODO [k8s]: Should we support this?
-        /*
-    case "cmdExec": {
-      const mainFile = path.join(tools.getControllerDir(), `${tools.appName.toLowerCase()}.js`);
-      const args = [...getDefaultNodeArgs(mainFile), mainFile];
-      if (!msg.message.data || typeof msg.message.data !== "string") {
-        logger.warn(
-          `${hostLogPrefix} ${
-            tools.appName
-          } Invalid cmdExec object. Expected key "data" with the command as string. Got as "data": ${JSON.stringify(
-            msg.message.data
-          )}`
-        );
-      } else {
-        const extraArgs = msg.message.data.split(" ");
-        args.push(...extraArgs);
-        logger.info(`${hostLogPrefix} ${tools.appName.toLowerCase()} ${extraArgs.join(" ")}`);
+        case 'cmdExec': {
+            await cmdExec(msg, sendTo, logger);
 
-        try {
-          const child = spawn(process.execPath, args, { windowsHide: true });
-          if (child.stdout) {
-            child.stdout.on("data", (data) => {
-              data = data.toString().replace(/\n/g, "");
-              logger.info(`${hostLogPrefix} ${tools.appName} ${data}`);
-              msg.from && sendTo(msg.from, "cmdStdout", { id: msg.message.id, data: data });
-            });
-          }
-
-          if (child.stderr) {
-            child.stderr.on("data", (data) => {
-              data = data.toString().replace(/\n/g, "");
-              logger.error(`${hostLogPrefix} ${tools.appName} ${data}`);
-              msg.from && sendTo(msg.from, "cmdStderr", { id: msg.message.id, data: data });
-            });
-          }
-
-          child.on("exit", (exitCode) => {
-            logger.info(`${hostLogPrefix} ${tools.appName} exit ${exitCode}`);
-            if (msg.from) {
-              sendTo(msg.from, "cmdExit", { id: msg.message.id, data: exitCode });
-              // Sometimes finished command is lost, recent it
-              setTimeout(
-                () => sendTo(msg.from, "cmdExit", { id: msg.message.id, data: exitCode }),
-                1_000
-              );
-            }
-          });
-        } catch (e) {
-          logger.error(`${hostLogPrefix} ${tools.appName} ${e.message}`);
-          msg.from && sendTo(msg.from, "cmdStderr", { id: msg.message.id, data: e.message });
+            break;
         }
-      }
-
-      break;
-    }*/
 
         case 'getRepository':
             if (msg.callback && msg.from) {
@@ -1880,45 +1839,44 @@ async function processMessage(msg: ioBroker.SendableMessage): Promise<null | voi
             }
             break;
 
-        // TODO [k8s]: support getting installed hosts
-        /*
-    case "getInstalled":
-      if (msg.callback && msg.from) {
-        // Get a list of all hosts
-        const doc = await objects!.getObjectViewAsync("system", "host", {
-          startkey: "system.host.",
-          endkey: "system.host.\u9999",
-        });
+        case 'getInstalled':
+            if (msg.callback && msg.from) {
+                // Get a list of all hosts
+                const doc = await objects!.getObjectViewAsync('system', 'host', {
+                    startkey: 'system.host.',
+                    endkey: 'system.host.\u9999',
+                });
 
-        const installedInfo = tools.getInstalledInfo();
-        const hosts: Record<string, HostInformation> = {};
+                // TODO [k8s]: add our installed adapters, not the ones from nodes_modules
+                const installedInfo = tools.getInstalledInfo();
+                const hosts: Record<string, HostInformation> = {};
 
-        if (doc?.rows.length) {
-          // Read installed versions of all hosts
-          for (const row of doc.rows) {
-            // If desired a local version, do not ask it, just answer
-            if (row.id === hostObjectPrefix) {
-              const ioPackCommon = deepClone(ioPackage.common);
+                if (doc?.rows.length) {
+                    // Read installed versions of all hosts
+                    for (const row of doc.rows) {
+                        // If desired a local version, do not ask it, just answer
+                        if (row.id === hostObjectPrefix) {
+                            const ioPackCommon = deepClone(ioPackage.common);
 
-              ioPackCommon.host = hostname;
-              ioPackCommon.runningVersion = version;
-              hosts[hostname] = ioPackCommon;
+                            ioPackCommon.host = hostname;
+                            ioPackCommon.runningVersion = version;
+                            hosts[hostname] = ioPackCommon;
+                        } else {
+                            const ioPack = await getVersionFromHost(row.id);
+                            if (ioPack) {
+                                hosts[ioPack.host] = ioPack;
+                            }
+                        }
+                    }
+                }
+
+                sendTo(msg.from, msg.command, { ...installedInfo, hosts }, msg.callback);
             } else {
-              const ioPack = await getVersionFromHost(row.id);
-              if (ioPack) {
-                hosts[ioPack.host] = ioPack;
-              }
+                logger.error(
+                    `${hostLogPrefix} Invalid request ${msg.command}. "callback" or "from" is null`
+                );
             }
-          }
-        }
-
-        sendTo(msg.from, msg.command, { ...installedInfo, hosts }, msg.callback);
-      } else {
-        logger.error(
-          `${hostLogPrefix} Invalid request ${msg.command}. "callback" or "from" is null`
-        );
-      }
-      break;*/
+            break;
 
         // TODO [k8s]: we need to support this differently
         /*
@@ -2037,10 +1995,11 @@ async function processMessage(msg: ioBroker.SendableMessage): Promise<null | voi
       break;
       */
 
-        // TODO [k8s]: we need to support this differently
-        /*
-    case "getLogs":
-      if (msg.callback && msg.from) {
+        case 'getLogs':
+            if (msg.callback && msg.from) {
+                // TODO [k8s]: we need to support this differently
+                sendTo(msg.from, msg.command, [0], msg.callback);
+                /*
         const lines = msg.message || 200;
         let text = "";
         // @ts-expect-error types not know this one
@@ -2074,14 +2033,16 @@ async function processMessage(msg: ioBroker.SendableMessage): Promise<null | voi
             );
         } else {
           sendTo(msg.from, msg.command, [0], msg.callback);
-        }
-      } else {
-        logger.error(
-          `${hostLogPrefix} Invalid request ${msg.command}. "callback" or "from" is null`
-        );
-      }
-      break;
+        }*/
+            } else {
+                logger.error(
+                    `${hostLogPrefix} Invalid request ${msg.command}. "callback" or "from" is null`
+                );
+            }
+            break;
 
+        // TODO [k8s]: we need to support this differently
+        /*
     case "getLogFile":
       if (msg.callback && msg.from && msg.message) {
         const config = getConfig();
@@ -2136,74 +2097,81 @@ async function processMessage(msg: ioBroker.SendableMessage): Promise<null | voi
       }
       break;
 
-    case "getLogFiles":
-      if (msg.callback && msg.from) {
-        const config = getConfig();
-        const result: GetLogFilesResult = { list: [] };
-        // detect file log
-        if (config && config.log && config.log.transport) {
-          for (const transport in config.log.transport) {
-            if (
-              config.log.transport[transport] &&
-              config.log.transport[transport].type === "file"
-            ) {
-              let filename = config.log.transport[transport].filename || "log/";
-              const parts = filename.replace(/\\/g, "/").split("/");
-              parts.pop();
-              filename = parts.join("/");
-
-              if (filename[0] !== "/" && !filename.match(/^\W:/)) {
-                const parts = ["..", "..", "..", ".."];
-                do {
-                  parts.pop();
-                  const _filename =
-                    path.normalize(`${controllerDir}/${parts.join("/")}/`) + filename;
-                  if (fs.existsSync(_filename)) {
-                    filename = _filename;
-                    break;
-                  }
-                } while (parts.length);
-              }
-
-              try {
-                if (fs.existsSync(filename)) {
-                  const files = fs.readdirSync(filename);
-
-                  for (const file of files) {
-                    try {
-                      if (!file.endsWith("-audit.json")) {
-                        const stat = fs.lstatSync(path.join(filename, file));
-                        if (!stat.isDirectory()) {
-                          result.list.push({
-                            fileName: `log/${hostname}/${transport}/${file}`,
-                            size: stat.size,
-                          });
-                        }
-                      }
-                    } catch (e) {
-                      logger.error(
-                        `${hostLogPrefix} cannot check file: ${path.join(filename, file)} - ${
-                          e.message
-                        }`
-                      );
-                    }
-                  }
-                }
-              } catch (e) {
-                logger.error(`${hostLogPrefix} cannot check files: ${filename} - ${e.message}`);
-              }
-            }
-          }
-        }
-
-        sendTo(msg.from, msg.command, result, msg.callback);
-      } else {
-        logger.error(
-          `${hostLogPrefix} Invalid request ${msg.command}. "callback" or "from" is null`
-        );
-      }
-      break;
       */
+        case 'getLogFiles':
+            if (msg.callback && msg.from) {
+                const config = getConfig();
+                const result: GetLogFilesResult = { list: [] };
+                // TODO [k8s]: we need to support this differently
+                /*
+                // detect file log
+                if (config && config.log && config.log.transport) {
+                    for (const transport in config.log.transport) {
+                        if (
+                            config.log.transport[transport] &&
+                            config.log.transport[transport].type === 'file'
+                        ) {
+                            let filename = config.log.transport[transport].filename || 'log/';
+                            const parts = filename.replace(/\\/g, '/').split('/');
+                            parts.pop();
+                            filename = parts.join('/');
+
+                            if (filename[0] !== '/' && !filename.match(/^\W:/)) {
+                                const parts = ['..', '..', '..', '..'];
+                                do {
+                                    parts.pop();
+                                    const _filename =
+                                        path.normalize(`${controllerDir}/${parts.join('/')}/`) +
+                                        filename;
+                                    if (fs.existsSync(_filename)) {
+                                        filename = _filename;
+                                        break;
+                                    }
+                                } while (parts.length);
+                            }
+
+                            try {
+                                if (fs.existsSync(filename)) {
+                                    const files = fs.readdirSync(filename);
+
+                                    for (const file of files) {
+                                        try {
+                                            if (!file.endsWith('-audit.json')) {
+                                                const stat = fs.lstatSync(
+                                                    path.join(filename, file)
+                                                );
+                                                if (!stat.isDirectory()) {
+                                                    result.list.push({
+                                                        fileName: `log/${hostname}/${transport}/${file}`,
+                                                        size: stat.size,
+                                                    });
+                                                }
+                                            }
+                                        } catch (e) {
+                                            logger.error(
+                                                `${hostLogPrefix} cannot check file: ${path.join(filename, file)} - ${
+                                                    e.message
+                                                }`
+                                            );
+                                        }
+                                    }
+                                }
+                            } catch (e) {
+                                logger.error(
+                                    `${hostLogPrefix} cannot check files: ${filename} - ${e.message}`
+                                );
+                            }
+                        }
+                    }
+                }*/
+
+                sendTo(msg.from, msg.command, result, msg.callback);
+            } else {
+                logger.error(
+                    `${hostLogPrefix} Invalid request ${msg.command}. "callback" or "from" is null`
+                );
+            }
+            break;
 
         case 'getHostInfo':
             if (msg.callback && msg.from) {
