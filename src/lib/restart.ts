@@ -54,9 +54,3 @@ export default async function restart(callback?: () => void): Promise<void> {
         setTimeout(() => process.exit(), 500);
     }
 }
-
-// eslint-disable-next-line unicorn/prefer-module
-const modulePath = url.fileURLToPath(import.meta.url || `file://${__filename}`);
-if (process.argv[1] === modulePath) {
-    restart();
-}

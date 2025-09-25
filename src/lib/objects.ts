@@ -1,5 +1,5 @@
 import fs from 'fs-extra';
-import { DEFAULT_DISK_WARNING_LEVEL } from '@/lib/utils.js';
+import { DEFAULT_DISK_WARNING_LEVEL } from './utils';
 import { tools } from '@iobroker/js-controller-common-db';
 
 interface GetHostOptions {

@@ -39,7 +39,9 @@ interface InsecureWebServerParameters {
     port: number;
 }
 
-type SecureWebServerParameters = Omit<InsecureWebServerParameters, 'useHttps'> & { useHttps: true } & Certificates;
+type SecureWebServerParameters = Omit<InsecureWebServerParameters, 'useHttps'> & {
+    useHttps: true;
+} & Certificates;
 type WebServerParameters = InsecureWebServerParameters | SecureWebServerParameters;
 
 interface GetCertificatesParams {
@@ -104,7 +106,8 @@ class UpgradeManager {
      */
     applyUser(): void {
         if (!process.setuid || !process.setgid) {
-            const errMessage = 'Cannot ensure user and group ids on this system, because no POSIX platform';
+            const errMessage =
+                'Cannot ensure user and group ids on this system, because no POSIX platform';
             this.log(errMessage, true);
             throw new Error(errMessage);
         }
@@ -207,7 +210,9 @@ class UpgradeManager {
      * Print how the module should be used
      */
     static printUsage(): void {
-        console.info('Example usage: "node upgradeManager.js <version> <adminInstance> <uid> <gid>"');
+        console.info(
+            'Example usage: "node upgradeManager.js <version> <adminInstance> <uid> <gid>"'
+        );
     }
 
     /**
@@ -307,7 +312,7 @@ class UpgradeManager {
 
         this.monitorSockets(this.server);
 
-        await new Promise<void>(resolve => {
+        await new Promise<void>((resolve) => {
             this.server!.listen(port, () => {
                 resolve();
             });
@@ -330,7 +335,7 @@ class UpgradeManager {
 
         this.monitorSockets(this.server);
 
-        await new Promise<void>(resolve => {
+        await new Promise<void>((resolve) => {
             this.server!.listen(port, () => {
                 resolve();
             });
@@ -345,7 +350,7 @@ class UpgradeManager {
      * @param server the webserver
      */
     monitorSockets(server: http.Server | https.Server): void {
-        server.on('connection', socket => {
+        server.on('connection', (socket) => {
             this.sockets.add(socket);
 
             server.once('close', () => {
@@ -423,7 +428,9 @@ class UpgradeManager {
     async startShutdownTimeout(): Promise<void> {
         this.shutdownAbortController = new AbortController();
         try {
-            await wait(this.SHUTDOWN_TIMEOUT, null, { signal: this.shutdownAbortController.signal });
+            await wait(this.SHUTDOWN_TIMEOUT, null, {
+                signal: this.shutdownAbortController.signal,
+            });
 
             this.log('Timeout expired, initializing shutdown');
             this.shutdownApp();
@@ -468,21 +475,14 @@ async function main(): Promise<void> {
  * @param upgradeManager the instance of Upgrade Manager
  */
 function registerErrorHandlers(upgradeManager: UpgradeManager): void {
-    process.on('uncaughtException', e => {
+    process.on('uncaughtException', (e) => {
         upgradeManager.log(`Uncaught Exception: ${e.stack}`, true);
     });
 
-    process.on('unhandledRejection', rej => {
-        upgradeManager.log(`Unhandled rejection: ${rej instanceof Error ? rej.stack : JSON.stringify(rej)}`, true);
+    process.on('unhandledRejection', (rej) => {
+        upgradeManager.log(
+            `Unhandled rejection: ${rej instanceof Error ? rej.stack : JSON.stringify(rej)}`,
+            true
+        );
     });
-}
-
-/**
- * This file always needs to be executed in a process different from js-controller
- * else it will be canceled when the file itself stops the controller
- */
-// eslint-disable-next-line unicorn/prefer-module
-const modulePath = url.fileURLToPath(import.meta.url || `file://${__filename}`);
-if (process.argv[1] === modulePath) {
-    main();
 }
