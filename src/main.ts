@@ -37,11 +37,11 @@ import { setTimeout as wait } from 'node:timers/promises';
 import { inspect, isDeepStrictEqual } from 'node:util';
 import pidUsage from 'pidusage';
 import semver from 'semver';
-import { AdapterAutoUpgradeManager } from './lib/adapterAutoUpgradeManager';
-import { BlocklistManager } from './lib/blocklistManager';
-import { getHostObjects } from './lib/objects';
-import restart from './lib/restart';
-import { getCronExpression, getDiskWarningLevel } from './lib/utils';
+import { AdapterAutoUpgradeManager } from 'iobroker.js-controller/build/cjs/lib/adapterAutoUpgradeManager';
+import { BlocklistManager } from 'iobroker.js-controller/build/cjs/lib/blocklistManager';
+import { getHostObjects } from 'iobroker.js-controller/build/cjs/lib/objects';
+import restart from 'iobroker.js-controller/build/cjs/lib/restart';
+import { getCronExpression, getDiskWarningLevel } from 'iobroker.js-controller/build/cjs/lib/utils';
 import { DatabaseOptions } from '@iobroker/types/build/config';
 import { cmdExec } from './cmdExec';
 
@@ -1254,7 +1254,7 @@ async function collectDiagInfo(type: DiagInfoType): Promise<void | Record<string
     }
     // read the number of vis data points
     for (const visAdapter of foundVisAdapters) {
-        const { calcProjects } = await import('./lib/vis/states.js');
+        const { calcProjects } = await import('iobroker.js-controller/build/cjs/lib/vis/states.js');
 
         try {
             const points = await calcProjects({ objects: objects!, instance: 0, visAdapter });

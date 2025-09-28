@@ -1,0 +1,13 @@
+diff --git a/node_modules/iobroker.js-controller/package.json b/node_modules/iobroker.js-controller/package.json
+index b2ca434..211253d 100644
+--- a/node_modules/iobroker.js-controller/package.json
++++ b/node_modules/iobroker.js-controller/package.json
+@@ -90,7 +90,7 @@
+     "main": "build/cjs/main.js",
+     "module": "build/esm/main.js",
+     "types": "build/esm/main.d.ts",
+-    "exports": {
++    "_exports": {
+         ".": {
+             "import": "./build/esm/main.js",
+             "require": "./build/cjs/main.js",
