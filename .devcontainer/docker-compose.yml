@@ -55,7 +55,7 @@ services:
             - valkey
 
     k3s-master:
-        image: rancher/k3s:latest
+        image: rancher/k3s:v1.32.5-k3s1
         command: server --write-kubeconfig-mode=644
         hostname: k3s-master
         tmpfs:
