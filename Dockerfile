@@ -14,7 +14,7 @@ COPY src/ ./src/
 COPY tsconfig.json ./
 
 # Install build dependencies
-RUN npm install --save-dev typescript esbuild
+RUN npm install --save-dev typescript
 
 # Build the application
 RUN npm run build
