@@ -1,25 +1,18 @@
-import { KubeConfig, AppsV1Api, CoreV1Api, V1Pod, CustomObjectsApi } from '@kubernetes/client-node';
-import { parse as parseYaml, stringify } from 'yaml';
+import { EXIT_CODES, tools, logger as toolsLogger } from '@iobroker/js-controller-common';
+import { CoreV1Api, CustomObjectsApi } from '@kubernetes/client-node';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import { argv } from './argv';
 import {
-    EXIT_CODES,
-    getInstancesOrderedByStartPrio,
-    getObjectsConstructor,
-    getStatesConstructor,
-    isInstalledFromNpm,
-    isLocalObjectsDbServer,
-    isLocalStatesDbServer,
-    NotificationHandler,
-    tools,
-    logger as toolsLogger,
-    zipFiles,
-} from '@iobroker/js-controller-common';
+    getAdapterNamespace,
+    getHelmReleaseName,
+    kubeConfig,
+    parseAdapterInstance,
+} from './common';
+import { getConfig } from './config';
 import type { SendTo } from './main';
 
 const hostname = tools.getHostName();
 const hostLogPrefix = `host.${hostname}`;
-
-const kubeConfig = new KubeConfig();
-kubeConfig.loadFromDefault();
 
 type MessageHandler = {
     readonly logger: ReturnType<typeof toolsLogger>;
@@ -68,8 +61,13 @@ export async function cmdExec(
     var cmd = args.shift();
     try {
         switch (cmd) {
+            case 'a':
             case 'add':
                 await addAdapter(args, handler);
+                break;
+            case 'del':
+            case 'delete':
+                await deleteAdapter(args, handler);
                 break;
             default:
                 handler.sendStderr(`Unknown command: ${tools.appName.toLowerCase()} ${cmd}`);
@@ -129,7 +127,7 @@ async function addAdapter(args: string[], { sendExit, sendStdout, sendStderr }: 
 
     // TODO: figure out which instance number we need
     const instance = 0;
-    const namespace = `iobroker-${adapter}-${instance}`;
+    const namespace = getAdapterNamespace(adapter, instance);
 
     const k8sApi = kubeConfig.makeApiClient(CoreV1Api);
 
@@ -146,11 +144,34 @@ async function addAdapter(args: string[], { sendExit, sendStdout, sendStderr }: 
         });
     }
 
-    // create custom resource with apiVersion: helm.cattle.io/v1 and kind: HelmChart
+    const configMapName = `iobroker-config`;
+    sendStdout(`Creating ioBroker ConfigMap in namespace ${namespace}`);
+    // TODO: should we check if it already exists?
+    await k8sApi.createNamespacedConfigMap({
+        namespace,
+        body: {
+            metadata: {
+                name: configMapName,
+            },
+            data: {
+                'iobroker.json': JSON.stringify(
+                    getConfig({
+                        host: argv.adapterRedisHost ?? argv.redisHost,
+                        port: argv.adapterRedisPort ?? argv.redisPort,
+                        password: argv.redisPassword,
+                        db: argv.redisDb,
+                    }),
+                    null,
+                    2
+                ),
+            },
+        },
+    });
+
     const customObjectsApi = kubeConfig.makeApiClient(CustomObjectsApi);
 
     sendStdout(`Creating Helm release in namespace ${namespace}`);
-    const releaseName = `iobroker-${adapter}-${instance}`;
+    const releaseName = getHelmReleaseName(adapter, instance);
     await customObjectsApi.createNamespacedCustomObject({
         group: 'helm.cattle.io',
         version: 'v1',
@@ -164,9 +185,9 @@ async function addAdapter(args: string[], { sendExit, sendStdout, sendStderr }: 
                 name: releaseName,
                 namespace,
                 labels: {
-                    app: 'iobroker',
-                    adapter: adapter,
-                    instance: instance.toString(),
+                    'app.kubernetes.io/managed-by': 'iobroker-k8s-controller',
+                    'app.kubernetes.io/name': chartName,
+                    'app.kubernetes.io/instance': `${adapter}.${instance}`,
                 },
             },
             spec: {
@@ -174,11 +195,51 @@ async function addAdapter(args: string[], { sendExit, sendStdout, sendStderr }: 
                 targetNamespace: namespace,
                 version: versionInfo.version,
                 repo: helmRepo,
-                backOffLimit: 10,
+                backOffLimit: 3,
+                valuesContent: stringifyYaml({
+                    fullnameOverride: releaseName,
+                    adapter: {
+                        instance,
+                        hostname,
+                        configMapName,
+                    },
+                }),
             },
         },
     });
 
     // TODO: observe the status of the helm chart installation
+    sendExit(0);
+}
+
+async function deleteAdapter(args: string[], { sendExit, sendStdout, sendStderr }: MessageHandler) {
+    var adapterInstance = args.shift();
+    if (!adapterInstance) {
+        sendExit(EXIT_CODES.INVALID_ARGUMENTS);
+        return;
+    }
+
+    const { adapter, instance } = parseAdapterInstance(adapterInstance);
+    if (!adapter) {
+        sendExit(EXIT_CODES.INVALID_ARGUMENTS);
+        return;
+    }
+
+    const namespace = `iobroker-${adapter}-${instance}`;
+
+    sendStdout(`Deleting Helm release in namespace ${namespace}`);
+    const releaseName = `iobroker-${adapter}-${instance}`;
+    const customObjectsApi = kubeConfig.makeApiClient(CustomObjectsApi);
+    await customObjectsApi.deleteNamespacedCustomObject({
+        group: 'helm.cattle.io',
+        version: 'v1',
+        plural: 'helmcharts',
+        namespace,
+        name: releaseName,
+    });
+
+    // TODO: observe the status of the helm chart uninstallation
+
+    // TODO: delete the namespace when empty
     sendExit(0);
 }

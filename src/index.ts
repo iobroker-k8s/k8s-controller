@@ -1,23 +1,5 @@
-#!/usr/bin/env node
-
-import yargs from 'yargs/yargs';
-import { hideBin } from 'yargs/helpers';
+import { argv } from './argv';
 import { init } from './main';
-
-interface Arguments {
-    verbose?: boolean;
-}
-
-const argv = yargs(hideBin(process.argv))
-    .option('verbose', {
-        alias: 'v',
-        type: 'boolean',
-        description: 'Run with verbose logging',
-        default: false,
-    })
-    .help()
-    .alias('help', 'h')
-    .parseSync() as Arguments;
 
 function run(): void {
     console.log('ioBroker Kubernetes Controller');

@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
     app:
@@ -14,8 +14,10 @@ services:
             - iobroker
             - k3s-master
         environment:
-            - VALKEY_URL=redis://valkey:6379
-            - IOBROKER_URL=http://iobroker:8081
+            - IOB_K8S_REDIS_HOST=valkey
+            - IOB_K8S_REDIS_PORT=6379
+            - IOB_K8S_REDIS_PASSWORD=iobroker
+            - IOB_K8S_REDIS_DB=0
             - KUBECONFIG=/tmp/k3s/kubeconfig.devcontainer
 
     valkey:
@@ -25,7 +27,7 @@ services:
         volumes:
             - valkey-data:/data
         ports:
-            - '6379:6379'
+            - "6379:6379"
         environment:
             - VALKEY_PASSWORD=iobroker
 
@@ -34,10 +36,10 @@ services:
         restart: unless-stopped
         hostname: iobroker
         ports:
-            - '8081:8081'
-            - '8082:8082'
-            - '8083:8083'
-            - '8084:8084'
+            - "8081:8081"
+            - "8082:8082"
+            - "8083:8083"
+            - "8084:8084"
         volumes:
             - iobroker-data:/opt/iobroker
         environment:
@@ -76,9 +78,9 @@ services:
             - k3s-server:/var/lib/rancher/k3s
             - k3s-kubeconfig:/tmp/k3s
         ports:
-            - '7443:6443'
-            - '80:80'
-            - '443:443'
+            - "7443:6443"
+            - "80:80"
+            - "443:443"
 
 volumes:
     valkey-data:

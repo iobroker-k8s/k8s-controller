@@ -44,6 +44,9 @@ import restart from 'iobroker.js-controller/build/cjs/lib/restart';
 import { getCronExpression, getDiskWarningLevel } from 'iobroker.js-controller/build/cjs/lib/utils';
 import { DatabaseOptions } from '@iobroker/types/build/config';
 import { cmdExec } from './cmdExec';
+import { getConfig } from './config';
+import { argv } from './argv';
+import { adapterConfigChange } from './adapterConfigChange';
 
 export type SendTo = typeof sendTo;
 
@@ -128,7 +131,7 @@ const uptimeStart = Date.now();
 
 let lastDiagSend: null | number = null;
 
-const config = getConfig();
+const config = getLocalConfig();
 
 /**
  * Get the error text from an exit code
@@ -139,100 +142,13 @@ function getErrorText(code: number): string {
     return EXIT_CODES[code];
 }
 
-/**
- * Get the config directly from fs - never cached
- */
-function getConfig(): ioBroker.IoBrokerJson {
-    const dbOptions: DatabaseOptions = {
-        type: 'redis',
-        '// type': '',
-        host: 'valkey', // TODO [k8s]: Make this configurable
-        port: 6379, // TODO [k8s]: Make this configurable
-        connectTimeout: 5000,
-        writeFileInterval: 5000,
-        dataDir: '',
-        options: {
-            auth_pass: 'iobroker', // TODO [k8s]: Make this configurable
-            retry_max_delay: 5000,
-            retry_max_count: 19,
-            db: 0,
-            family: 0,
-        },
-        backup: {
-            disabled: false,
-            files: 24,
-            '// files': '',
-            hours: 48,
-            '// hours': '',
-            period: 120,
-            '// period': '',
-            path: '',
-            '// path': '',
-        },
-        jsonlOptions: {
-            '// autoCompress (1)': '',
-            '// autoCompress (2)': '',
-            '// autoCompress (3)': '',
-            autoCompress: {
-                sizeFactor: 2,
-                sizeFactorMinimumSize: 25000,
-            },
-            '// ignoreReadErrors': '',
-            ignoreReadErrors: true,
-            '// throttleFS (1)': '',
-            '// throttleFS (2)': '',
-            throttleFS: {
-                '// intervalMs': '',
-                intervalMs: 60000,
-                '// maxBufferedCommands': '',
-                maxBufferedCommands: 100,
-            },
-        },
-    };
-    return {
-        system: {
-            memoryLimitMB: 0,
-            hostname,
-            statisticsInterval: 0,
-            '// statisticsInterval': '',
-            checkDiskInterval: 0,
-            '// checkDiskInterval': 'Disabled in k8s',
-            instanceStartInterval: 0,
-            compact: false,
-            '// compact': 'Never used in k8s',
-            allowShellCommands: false,
-            '// allowShellCommands': 'For security reasons, shell commands are not allowed in k8s',
-            memLimitWarn: 100,
-            '// memLimitWarn': 'Warn if less than 100 MB available',
-            memLimitError: 50,
-            '// memLimitError': 'Error if less than 50 MB available',
-        },
-        multihostService: {
-            enabled: false,
-            secure: true,
-            password: '',
-            persist: false,
-        },
-        objects: {
-            ...dbOptions,
-            noFileCache: false,
-        },
-        states: {
-            ...dbOptions,
-            maxQueue: 1000,
-        },
-        log: {
-            level: 'debug',
-            maxDays: 7,
-            noStdout: false,
-            transport: {},
-        },
-        '// dataDir': 'Always relative to iobroker.js-controller/',
-        dataDir: '',
-        plugins: {},
-        '// dnsResolution': "Use 'verbatim' for ipv6 first, else use 'ipv4first'",
-        dnsResolution: 'ipv4first',
-    };
+function getLocalConfig() {
+    return getConfig({
+        host: argv.redisHost,
+        port: argv.redisPort,
+        password: argv.redisPassword,
+        db: argv.redisDb,
+    });
 }
 
 /**
@@ -601,6 +517,7 @@ function createObjects(onConnect: () => void): void {
                     `${hostLogPrefix} object change ${id} (from: ${obj ? obj.from : null})`
                 );
                 // known adapter
+                await adapterConfigChange(id, obj, states!, logger);
                 // TODO [k8s]: Implement adapter object changes
                 /*
         const proc = procs[id];
@@ -2045,7 +1962,7 @@ async function processMessage(msg: ioBroker.SendableMessage): Promise<null | voi
         /*
     case "getLogFile":
       if (msg.callback && msg.from && msg.message) {
-        const config = getConfig();
+        const config = getLocalConfig();
         if (
           config &&
           config.log &&
@@ -2100,7 +2017,7 @@ async function processMessage(msg: ioBroker.SendableMessage): Promise<null | voi
       */
         case 'getLogFiles':
             if (msg.callback && msg.from) {
-                const config = getConfig();
+                const config = getLocalConfig();
                 const result: GetLogFilesResult = { list: [] };
                 // TODO [k8s]: we need to support this differently
                 /*
@@ -2183,6 +2100,13 @@ async function processMessage(msg: ioBroker.SendableMessage): Promise<null | voi
                 let hostInfo: HostInfo;
                 try {
                     hostInfo = await tools.getHostInfo(objects);
+                    hostInfo.Platform = 'Kubernetes' as any; // override platform
+                    hostInfo.dockerInformation = {
+                        isDocker: true,
+                        isOfficial: true,
+                        // TODO [k8s]: figure out the official version
+                        officialVersion: '0.0.1',
+                    };
                 } catch (e) {
                     logger.error(`${hostLogPrefix} cannot get getHostInfo: ${e.message}`);
                     return null;
@@ -2560,38 +2484,19 @@ async function processMessage(msg: ioBroker.SendableMessage): Promise<null | voi
       }
       break;*/
 
+        case 'readBaseSettings':
+            if (msg.callback && msg.from) {
+                const config = getLocalConfig();
+                sendTo(msg.from, msg.command, { config, isActive: true }, msg.callback);
+            } else {
+                logger.error(
+                    `${hostLogPrefix} No adapter name is specified for readBaseSettings command from  ${msg.from}`
+                );
+            }
+            break;
+
         // TODO [k8s]: we need to support this differently
         /*
-    case "readBaseSettings":
-      if (msg.callback && msg.from) {
-        const configFile = tools.getConfigFileName();
-        if (fs.existsSync(configFile)) {
-          try {
-            const config: ioBroker.IoBrokerJson = fs.readJsonSync(configFile);
-            const stat = fs.lstatSync(configFile);
-            sendTo(
-              msg.from,
-              msg.command,
-              { config, isActive: uptimeStart > stat.mtimeMs },
-              msg.callback
-            );
-          } catch {
-            const error = `Cannot parse file ${configFile}`;
-            logger.error(`${hostLogPrefix} ${error}`);
-            sendTo(msg.from, msg.command, { error }, msg.callback);
-          }
-        } else {
-          const error = `Cannot find file ${configFile}`;
-          logger.error(`${hostLogPrefix} ${error}`);
-          sendTo(msg.from, msg.command, { error }, msg.callback);
-        }
-      } else {
-        logger.error(
-          `${hostLogPrefix} No adapter name is specified for readBaseSettings command from  ${msg.from}`
-        );
-      }
-      break;
-
     case "writeBaseSettings": {
       if (!msg.message) {
         const error = `No data found on writeBaseSettings from "${msg.from}"`;
@@ -4834,7 +4739,7 @@ export async function init(): Promise<void> {
             console.error(`Could not access logging directory "${e.path}", fallback to default`);
 
             // read a fresh config to avoid overwriting e.g., noStdout
-            const _config = getConfig();
+            const _config = getLocalConfig();
             // persist the config to be fixed permanently
             const configFile = tools.getConfigFileName();
             const fixedLogPath = 'log/iobroker';
@@ -4874,7 +4779,9 @@ export async function init(): Promise<void> {
     /*logger.info(
     `${hostLogPrefix} ${tools.appName}.js-controller version ${version} ${ioPackage.common.name} starting`
   );*/
-    logger.info(`${hostLogPrefix} Copyright (c) 2014-2024 bluefox, 2014 hobbyquaker`);
+    logger.info(
+        `${hostLogPrefix} Copyright (c) 2025 UncleSamSwiss, 2014-2025 bluefox, 2014 hobbyquaker`
+    );
     logger.info(`${hostLogPrefix} hostname: ${hostname}, node: ${process.version}`);
     logger.info(`${hostLogPrefix} ip addresses: ${tools.findIPs().join(' ')}`);
 

@@ -12,7 +12,7 @@
         "lint:fix": "eslint src/**/*.ts --fix",
         "format": "prettier --write src/**/*.ts",
         "format:check": "prettier --check src/**/*.ts",
-        "start": "IOB_HOSTNAME=k8s-cluster ts-node src/index.ts",
+        "start": "IOB_HOSTNAME=k8s-cluster IOB_K8S_ADAPTER_REDIS_HOST=$(getent hosts valkey | awk '{ print $1 }') ts-node src/index.ts",
         "postinstall": "patch-package --exclude nothing"
     },
     "keywords": [
