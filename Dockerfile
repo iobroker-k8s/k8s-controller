@@ -6,18 +6,19 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
+# Copy "patch-package" files
+COPY patches/ ./patches/
+
 # Install dependencies
-RUN npm ci --only=production
+RUN npm install
 
 # Copy source code
+COPY tsconfig.json tsconfig.build.json ./
 COPY src/ ./src/
-COPY tsconfig.json ./
-
-# Install build dependencies
-RUN npm install --save-dev typescript
 
 # Build the application
 RUN npm run build
+
 
 # Production stage
 FROM node:24-alpine AS production
