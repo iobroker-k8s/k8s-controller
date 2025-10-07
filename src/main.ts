@@ -1598,7 +1598,7 @@ async function processMessage(msg: ioBroker.SendableMessage): Promise<null | voi
       */
 
         case 'cmdExec': {
-            await cmdExec(msg, sendTo, logger);
+            await cmdExec(msg, sendTo, logger, objects!, states!);
 
             break;
         }

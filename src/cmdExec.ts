@@ -1,6 +1,10 @@
+import type { Client as ObjectsClient } from '@iobroker/db-objects-redis';
+import type { Client as StatesClient } from '@iobroker/db-states-redis';
 import { EXIT_CODES, tools, logger as toolsLogger } from '@iobroker/js-controller-common';
+import { SYSTEM_ADAPTER_PREFIX } from '@iobroker/js-controller-common-db/constants';
 import { CoreV1Api, CustomObjectsApi } from '@kubernetes/client-node';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import yargs from 'yargs/yargs';
 import { argv } from './argv';
 import {
     getAdapterNamespace,
@@ -24,7 +28,9 @@ type MessageHandler = {
 export async function cmdExec(
     msg: ioBroker.SendableMessage,
     sendTo: SendTo,
-    logger: ReturnType<typeof toolsLogger>
+    logger: ReturnType<typeof toolsLogger>,
+    objects: ObjectsClient,
+    states: StatesClient
 ) {
     if (!msg.message.data || typeof msg.message.data !== 'string') {
         logger.warn(
@@ -58,34 +64,95 @@ export async function cmdExec(
         },
     };
 
-    var cmd = args.shift();
+    const cmdYargs = yargs()
+        .option('debug', {
+            type: 'boolean',
+            description: 'Run with debug logging',
+            default: false,
+        })
+        .command(
+            ['add <adapter> [instance]', 'a'],
+            'Add an adapter',
+            (y) =>
+                y
+                    .positional('adapter', {
+                        type: 'string',
+                        describe: 'Name of the adapter to add',
+                        demandOption: true,
+                    })
+                    .positional('instance', {
+                        type: 'string',
+                        describe:
+                            'Instance number of the adapter to add or "auto" to pick the next free instance',
+                        default: 'auto',
+                    })
+                    .option('host', {
+                        type: 'string',
+                        description: 'Hostname for the adapter',
+                    }),
+            (args) => addAdapter(args, handler, objects)
+        )
+        .command(
+            ['delete <adapterInstance>', 'del'],
+            'Delete an adapter instance',
+            (y) =>
+                y.positional('adapterInstance', {
+                    type: 'string',
+                    describe: 'Adapter instance to delete, e.g. "mqtt.0"',
+                    demandOption: true,
+                }),
+            (args) => deleteAdapter(args, handler)
+        )
+        .demandCommand(1, 'You need to specify a command')
+        .strict();
+
     try {
-        switch (cmd) {
-            case 'a':
-            case 'add':
-                await addAdapter(args, handler);
-                break;
-            case 'del':
-            case 'delete':
-                await deleteAdapter(args, handler);
-                break;
-            default:
-                handler.sendStderr(`Unknown command: ${tools.appName.toLowerCase()} ${cmd}`);
-                handler.sendExit(EXIT_CODES.INVALID_ARGUMENTS);
-                break;
-        }
+        await cmdYargs.parseAsync(args);
     } catch (error) {
         handler.sendStderr(`Error executing command: ${error.message}`);
         handler.sendExit(EXIT_CODES.UNCAUGHT_EXCEPTION);
     }
 }
 
-async function addAdapter(args: string[], { sendExit, sendStdout, sendStderr }: MessageHandler) {
-    var adapter = args.shift();
-    if (!adapter) {
+async function addAdapter(
+    { adapter, instance: instanceStr }: { adapter: string; instance: string },
+    { sendExit, sendStdout, sendStderr }: MessageHandler,
+    objects: ObjectsClient
+) {
+    const instanceOrAuto = instanceStr === 'auto' ? 'auto' : parseInt(instanceStr, 10);
+    if (instanceOrAuto !== 'auto' && (isNaN(instanceOrAuto) || instanceOrAuto < 0)) {
+        sendStderr(`Invalid adapter instance '${instanceStr}'`);
         sendExit(EXIT_CODES.INVALID_ARGUMENTS);
         return;
     }
+
+    sendStdout(`Requested instance is ${instanceOrAuto}`);
+
+    const instanceObjs = await objects.getObjectViewAsync('system', 'instance', {
+        startkey: `${SYSTEM_ADAPTER_PREFIX}${adapter}.`,
+        endkey: `${SYSTEM_ADAPTER_PREFIX}${adapter}.\u9999`,
+    });
+
+    let instance = -1;
+    if (instanceOrAuto != 'auto') {
+        instance = instanceOrAuto;
+        // find max instance
+        if (instanceObjs.rows.find((obj) => parseInt(obj.id.split('.').pop()!, 10) === instance)) {
+            sendStderr(`host.${hostname} error: instance already exists`);
+            return sendExit(EXIT_CODES.INSTANCE_ALREADY_EXISTS);
+        }
+    } else {
+        // find max instance
+        for (const row of instanceObjs.rows) {
+            const iInstance = parseInt(row.id.split('.').pop()!, 10);
+            if (instance === null || iInstance > instance) {
+                instance = iInstance;
+            }
+        }
+        instance++;
+    }
+
+    sendStdout(`Installing ${adapter}.${instance}`);
 
     sendStdout(`Loading Helm repository for ${adapter}`);
 
@@ -125,8 +192,6 @@ async function addAdapter(args: string[], { sendExit, sendStdout, sendStderr }: 
         `Installing adapter ${adapter} version ${versionInfo.appVersion} (Helm chart version ${versionInfo.version})`
     );
 
-    // TODO: figure out which instance number we need
-    const instance = 0;
     const namespace = getAdapterNamespace(adapter, instance);
 
     const k8sApi = kubeConfig.makeApiClient(CoreV1Api);
@@ -212,8 +277,10 @@ async function addAdapter(args: string[], { sendExit, sendStdout, sendStderr }: 
     sendExit(0);
 }
 
-async function deleteAdapter(args: string[], { sendExit, sendStdout, sendStderr }: MessageHandler) {
-    var adapterInstance = args.shift();
+async function deleteAdapter(
+    { adapterInstance }: { adapterInstance: string },
+    { sendExit, sendStdout, sendStderr }: MessageHandler
+) {
     if (!adapterInstance) {
         sendExit(EXIT_CODES.INVALID_ARGUMENTS);
         return;
