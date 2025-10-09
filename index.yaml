@@ -1,0 +1,14 @@
+apiVersion: v1
+entries:
+  k8s-controller:
+  - apiVersion: v2
+    appVersion: 0.0.1
+    created: "2025-10-09T19:05:42.532384932Z"
+    description: Kubernetes Controller for ioBroker
+    digest: 5194279368c2f85ba71e0faaaefd7e9438ca4ffdaa5d160772862b0da91abbe2
+    name: k8s-controller
+    type: application
+    urls:
+    - https://github.com/iobroker-k8s/k8s-controller/releases/download/k8s-controller-0.1.0/k8s-controller-0.1.0.tgz
+    version: 0.1.0
+generated: "2025-10-09T19:05:42.53238934Z"
