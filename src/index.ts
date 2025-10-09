@@ -9,8 +9,14 @@ function run(): void {
         console.log('Arguments:', argv);
     }
 
-    console.log('Controller starting...');
-    init();
+    if (argv._.includes('setup')) {
+        console.log('Running setup...');
+        // Here you would add any setup logic needed
+        process.exit(0);
+    } else if (argv._.includes('start')) {
+        console.log('Controller starting...');
+        init();
+    }
 }
 
 if (require.main === module) {
