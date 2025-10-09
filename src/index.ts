@@ -1,37 +1,26 @@
-#!/usr/bin/env node
+import { argv } from './argv';
+import { init } from './main';
 
-const yargs = require('yargs/yargs');
-const { hideBin } = require('yargs/helpers');
+function run(): void {
+    console.log('ioBroker Kubernetes Controller');
 
-interface Arguments {
-  verbose?: boolean;
-}
+    if (argv.verbose) {
+        console.log('Verbose mode enabled');
+        console.log('Arguments:', argv);
+    }
 
-const argv = yargs(hideBin(process.argv))
-  .option('verbose', {
-    alias: 'v',
-    type: 'boolean',
-    description: 'Run with verbose logging',
-    default: false,
-  })
-  .help()
-  .alias('help', 'h')
-  .parseSync() as Arguments;
-
-function main(): void {
-  console.log('ioBroker Kubernetes Controller');
-  
-  if (argv.verbose) {
-    console.log('Verbose mode enabled');
-    console.log('Arguments:', argv);
-  }
-  
-  // TODO: Implement controller logic
-  console.log('Controller starting...');
+    if (argv._.includes('setup')) {
+        console.log('Running setup...');
+        // Here you would add any setup logic needed
+        process.exit(0);
+    } else if (argv._.includes('start')) {
+        console.log('Controller starting...');
+        init();
+    }
 }
 
 if (require.main === module) {
-  main();
+    run();
 }
 
-export { main };
+export { run as main };

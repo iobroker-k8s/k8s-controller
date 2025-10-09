@@ -6,25 +6,26 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
+# Copy "patch-package" files
+COPY patches/ ./patches/
+
 # Install dependencies
-RUN npm ci --only=production
+RUN npm install
 
 # Copy source code
+COPY tsconfig.json tsconfig.build.json ./
 COPY src/ ./src/
-COPY tsconfig.json ./
-
-# Install build dependencies
-RUN npm install --save-dev typescript esbuild
 
 # Build the application
 RUN npm run build
+
 
 # Production stage
 FROM node:24-alpine AS production
 
 # Create app user
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001
+    adduser -S nodejs -u 1001
 
 WORKDIR /app
 
@@ -38,8 +39,8 @@ RUN npm ci --only=production && npm cache clean --force
 COPY --from=builder /app/build ./build
 
 # Change ownership to app user
-RUN chown -R nextjs:nodejs /app
-USER nextjs
+RUN chown -R nodejs:nodejs /app
+USER nodejs
 
 # Set executable permissions on the main file
 RUN chmod +x /app/build/index.js
