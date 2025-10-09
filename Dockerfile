@@ -32,6 +32,9 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
+# Copy "patch-package" files
+COPY patches/ ./patches/
+
 # Install only production dependencies
 RUN npm ci --only=production && npm cache clean --force
 
