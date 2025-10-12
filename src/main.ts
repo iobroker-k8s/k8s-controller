@@ -44,8 +44,7 @@ import restart from 'iobroker.js-controller/build/cjs/lib/restart';
 import { getCronExpression, getDiskWarningLevel } from 'iobroker.js-controller/build/cjs/lib/utils';
 import { DatabaseOptions } from '@iobroker/types/build/config';
 import { cmdExec } from './cmdExec';
-import { getConfig } from './config';
-import { argv } from './argv';
+import { getConfig, getLocalConfig } from './config';
 import { adapterConfigChange } from './adapterConfigChange';
 
 export type SendTo = typeof sendTo;
@@ -140,15 +139,6 @@ const config = getLocalConfig();
  */
 function getErrorText(code: number): string {
     return EXIT_CODES[code];
-}
-
-function getLocalConfig() {
-    return getConfig({
-        host: argv.redisHost,
-        port: argv.redisPort,
-        password: argv.redisPassword,
-        db: argv.redisDb,
-    });
 }
 
 /**

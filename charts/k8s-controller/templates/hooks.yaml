@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/version: {{ .Chart.AppVersion }}
     helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
   annotations:
-    "helm.sh/hook": pre-install
+    "helm.sh/hook": post-install
     "helm.sh/hook-delete-policy": before-hook-creation
 spec:
   template:
@@ -30,9 +30,9 @@ spec:
           - name: IOB_HOSTNAME
             value: {{ .Values.hostname | quote }}
           - name: IOB_K8S_REDIS_HOST
-            value: {{ .Values.redis.host | quote }}
+            value: {{ .Values.redis.host | default (printf "%s-valkey" .Release.Name) | quote }}
           - name: IOB_K8S_REDIS_PORT
-            value: "{{ .Values.redis.port }}"
+            value: "{{ .Values.redis.port | default .Values.valkey.service.port }}"
           - name: IOB_K8S_REDIS_PASSWORD
             value: {{ .Values.redis.password | quote }}
           - name: IOB_K8S_REDIS_DB

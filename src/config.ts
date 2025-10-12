@@ -1,5 +1,6 @@
 import { tools } from '@iobroker/js-controller-common-db';
-import { DatabaseOptions } from '@iobroker/types/build/config';
+import type { DatabaseOptions } from '@iobroker/types/build/config';
+import { argv } from './argv';
 
 export interface RedisConfig {
     host: string;
@@ -10,6 +11,9 @@ export interface RedisConfig {
 
 /**
  * Get the config directly from fs - never cached
+ *
+ * @param redis Redis connection info
+ * @returns config object
  */
 export function getConfig(redis: RedisConfig): ioBroker.IoBrokerJson {
     const dbOptions: DatabaseOptions = {
@@ -102,4 +106,13 @@ export function getConfig(redis: RedisConfig): ioBroker.IoBrokerJson {
         '// dnsResolution': "Use 'verbatim' for ipv6 first, else use 'ipv4first'",
         dnsResolution: 'ipv4first',
     };
+}
+
+export function getLocalConfig() {
+    return getConfig({
+        host: argv.redisHost,
+        port: argv.redisPort,
+        password: argv.redisPassword,
+        db: argv.redisDb,
+    });
 }
