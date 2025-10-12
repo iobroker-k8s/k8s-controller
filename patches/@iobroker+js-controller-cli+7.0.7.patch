@@ -1,0 +1,13 @@
+diff --git a/node_modules/@iobroker/js-controller-cli/package.json b/node_modules/@iobroker/js-controller-cli/package.json
+index ef29185..490ce73 100644
+--- a/node_modules/@iobroker/js-controller-cli/package.json
++++ b/node_modules/@iobroker/js-controller-cli/package.json
+@@ -41,7 +41,7 @@
+     "main": "build/cjs/index.js",
+     "module": "build/esm/index.js",
+     "types": "build/esm/index.d.ts",
+-    "exports": {
++    "_exports": {
+         ".": {
+             "import": "./build/esm/index.js",
+             "require": "./build/cjs/index.js",

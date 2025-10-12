@@ -13,6 +13,7 @@
         "format": "prettier --write src/**/*.ts",
         "format:check": "prettier --check src/**/*.ts",
         "start": "IOB_HOSTNAME=k8s-cluster IOB_K8S_ADAPTER_REDIS_HOST=$(getent hosts valkey | awk '{ print $1 }') ts-node src/index.ts start",
+        "setup": "IOB_HOSTNAME=k8s-cluster ts-node src/index.ts setup",
         "postinstall": "patch-package --exclude nothing"
     },
     "keywords": [
@@ -27,6 +28,7 @@
         "node": ">=24.0.0"
     },
     "dependencies": {
+        "@iobroker/js-controller-cli": "^7.0.7",
         "@iobroker/js-controller-common": "^7.0.7",
         "@iobroker/js-controller-common-db": "^7.0.7",
         "@kubernetes/client-node": "^1.3.0",

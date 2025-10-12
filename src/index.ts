@@ -1,7 +1,8 @@
 import { argv } from './argv';
 import { init } from './main';
+import { setup } from './setup';
 
-function run(): void {
+async function run(): Promise<void> {
     console.log('ioBroker Kubernetes Controller');
 
     if (argv.verbose) {
@@ -12,15 +13,15 @@ function run(): void {
     if (argv._.includes('setup')) {
         console.log('Running setup...');
         // Here you would add any setup logic needed
+        await setup();
         process.exit(0);
     } else if (argv._.includes('start')) {
         console.log('Controller starting...');
-        init();
+        await init();
     }
 }
 
-if (require.main === module) {
-    run();
-}
-
-export { run as main };
+run().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});
