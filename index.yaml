@@ -2,6 +2,21 @@ apiVersion: v1
 entries:
   k8s-controller:
   - apiVersion: v2
+    appVersion: 0.0.2
+    created: "2025-10-12T20:10:43.426836359Z"
+    dependencies:
+    - condition: valkey.enabled
+      name: valkey
+      repository: https://valkey.io/valkey-helm/
+      version: 0.7.4
+    description: Kubernetes Controller for ioBroker
+    digest: 4b1e5a6e0e1329fc7a0da87c5939431e78ddfb2ec967ae4e4c36d2f18c9b5a50
+    name: k8s-controller
+    type: application
+    urls:
+    - https://github.com/iobroker-k8s/k8s-controller/releases/download/k8s-controller-0.1.2/k8s-controller-0.1.2.tgz
+    version: 0.1.2
+  - apiVersion: v2
     appVersion: 0.0.1
     created: "2025-10-12T19:09:35.972363424Z"
     dependencies:
@@ -26,4 +41,4 @@ entries:
     urls:
     - https://github.com/iobroker-k8s/k8s-controller/releases/download/k8s-controller-0.1.0/k8s-controller-0.1.0.tgz
     version: 0.1.0
-generated: "2025-10-12T19:09:35.972371299Z"
+generated: "2025-10-12T20:10:43.426851417Z"
