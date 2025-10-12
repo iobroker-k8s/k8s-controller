@@ -15,10 +15,10 @@ fullnameOverride: ''
 hostname: k8s-cluster
 
 redis:
-  host: redis-master
-  port: 6379
-  password: ''
-  db: 0
+    host: ''
+    port: ''
+    password: ''
+    db: 0
 
 #This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
 serviceAccount:
@@ -80,3 +80,9 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+valkey:
+    enabled: true
+    dataStorage:
+        enabled: true
+        requestedSize: 1Gi
