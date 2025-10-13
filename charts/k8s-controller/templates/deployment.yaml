@@ -38,7 +38,7 @@ spec:
             - name: IOB_HOSTNAME
               value: {{ .Values.hostname | quote }}
             - name: IOB_K8S_REDIS_HOST
-              value: {{ .Values.redis.host | default (printf "%s-valkey" .Release.Name) | quote }}
+              value: {{ .Values.redis.host | default (printf "%s-valkey.%s" .Release.Name .Release.Namespace) | quote }}
             - name: IOB_K8S_REDIS_PORT
               value: "{{ .Values.redis.port | default .Values.valkey.service.port }}"
             - name: IOB_K8S_REDIS_PASSWORD
