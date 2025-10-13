@@ -20,6 +20,7 @@ spec:
         helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     spec:
       restartPolicy: Never
+      serviceAccountName: {{ include "helm.serviceAccountName" . }}
       containers:
       - name: setup
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
