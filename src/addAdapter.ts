@@ -17,7 +17,8 @@ export async function addAdapter(
     { sendExit, sendStdout, sendStderr }: MessageHandler,
     objects: ObjectsClient
 ): Promise<void> {
-    const instanceOrAuto = instanceStr === 'auto' ? 'auto' : parseInt(instanceStr, 10);
+    const instanceOrAuto =
+        instanceStr === 'auto' || instanceStr === '' ? 'auto' : parseInt(instanceStr, 10);
     if (instanceOrAuto !== 'auto' && (isNaN(instanceOrAuto) || instanceOrAuto < 0)) {
         sendStderr(`Invalid adapter instance '${instanceStr}'`);
         sendExit(EXIT_CODES.INVALID_ARGUMENTS);

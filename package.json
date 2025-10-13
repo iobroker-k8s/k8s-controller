@@ -1,6 +1,6 @@
 {
     "name": "k8s-controller",
-    "version": "0.0.1",
+    "version": "0.0.5",
     "description": "ioBroker Kubernetes Controller",
     "main": "build/index.js",
     "scripts": {
