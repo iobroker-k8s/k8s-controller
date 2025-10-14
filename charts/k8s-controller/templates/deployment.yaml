@@ -33,7 +33,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
-            - "start"
+            - "run"
           env:
             - name: IOB_HOSTNAME
               value: {{ .Values.hostname | quote }}
