@@ -88,7 +88,12 @@ export async function cmdExec(
                 }),
             (args) => deleteAdapter(args, handler)
         )
+        .command('_restart', false, () => {
+            logger.info(`${hostLogPrefix} ${tools.appName} Restarting controller as requested`);
+            process.exit(-1);
+        })
         .demandCommand(1, 1, 'You need to specify a command')
+        .exitProcess(false)
         .strict();
 
     try {
