@@ -40,6 +40,6 @@ export async function setup(): Promise<void> {
             sendStdout: console.log,
             sendStderr: console.error,
         },
-        objects as any // TODO [k8s]: figure out how to get the right exm/cjs type
+        objects as any // TODO [k8s]: figure out how to get the right esm/cjs type
     );
 }

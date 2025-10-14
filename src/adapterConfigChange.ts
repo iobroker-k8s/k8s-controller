@@ -1,5 +1,5 @@
 import type { Client as StatesClient } from '@iobroker/db-states-redis';
-import { tools, logger as toolsLogger } from '@iobroker/js-controller-common';
+import { tools, type logger as toolsLogger } from '@iobroker/js-controller-common';
 import { CustomObjectsApi } from '@kubernetes/client-node';
 import { stringify as stringifyYaml } from 'yaml';
 import {
@@ -18,7 +18,7 @@ export async function adapterConfigChange(
     obj: ioBroker.InstanceObject | null,
     states: StatesClient,
     logger: ReturnType<typeof toolsLogger>
-) {
+): Promise<void> {
     const { adapter, instance } = parseAdapterInstance(id);
     if (!adapter || instance === null) {
         logger.warn(
@@ -36,7 +36,7 @@ export async function adapterConfigChange(
     }
 
     // always send sigKill to adapter instance (it needs to restart to apply new config)
-    await states!.setState(`${id}.sigKill`, { val: -1, ack: false, from: hostObjectPrefix });
+    await states.setState(`${id}.sigKill`, { val: -1, ack: false, from: hostObjectPrefix });
 
     const customObjectsApi = kubeConfig.makeApiClient(CustomObjectsApi);
     const namespace = getAdapterNamespace(adapter, instance);

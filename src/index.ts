@@ -12,10 +12,9 @@ async function run(): Promise<void> {
 
     if (argv._.includes('setup')) {
         console.log('Running setup...');
-        // Here you would add any setup logic needed
         await setup();
         process.exit(0);
-    } else if (argv._.includes('start')) {
+    } else if (argv._.includes('run')) {
         console.log('Controller starting...');
         await init();
     }

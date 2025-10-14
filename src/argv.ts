@@ -37,7 +37,7 @@ export const argv = yargs(hideBin(process.argv))
     .help()
     .alias('help', 'h')
     .env('IOB_K8S_')
-    .command('start', 'Start the Kubernetes controller')
+    .command('run', 'Run the Kubernetes controller')
     .command('setup', 'Setup the Kubernetes controller')
     .demandCommand(1, 1, 'You need to specify exactly one command')
     .parseSync();
